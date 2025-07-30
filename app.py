@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 from models.db_connection import DBconnection
 from models.sql_model import SQLModel
@@ -45,27 +46,32 @@ def ge_DB_llm_object():
 with st.sidebar:
     st.logo("images/sql.png", size="large")
 
-    API_KEY = st.text_input("Enter Gemini API key: ", type="password")
-    DB_password = st.text_input("Enter Database password: ", type="password")
+    # -- initialize credentials 
 
-    if st.button("Initialize credentials"):
-        conn, llmConnect = ge_DB_llm_object()
+    with st.popover('Initialize credentials'):
+        API_KEY = st.text_input("Enter Gemini API key: ", key="api_key", placeholder="API KEY")
+        DB_password = st.text_input("Enter Database password: ", type="password", key="db_pasword", placeholder="DB Password")
+        DB_host = st.text_input("Enter Database host: ", key="db_host", placeholder="DB host")
+        DB_user = st.text_input("Enter Database user: ", key="db_user", placeholder="DB user")
 
-        if DB_password and API_KEY:
-            if conn.initialize_credentials(DB_password):
-                if  llmConnect.initialize_llm(API_KEY):
-                    st.session_state.DB_connection = conn
-                    st.session_state.llm_connection = llmConnect
-                    st.success("llm and DB connected")
-                    st.session_state.messages.append({"role": "assistant", "content": "Successfully connected to DB and LLM. You can start the requests now."})
+        if st.button("Initialize credentials"):
+            conn, llmConnect = ge_DB_llm_object()
+
+            if DB_password and DB_host and DB_user and API_KEY:
+                if conn.initialize_credentials(DB_password, DB_host, DB_user):
+                    if  llmConnect.initialize_llm(API_KEY):
+                        st.session_state.DB_connection = conn
+                        st.session_state.llm_connection = llmConnect
+                        st.success("llm and DB connected")
+                        st.session_state.messages.append({"role": "assistant", "content": "Successfully connected to DB and LLM. You can start the requests now."})
+                    else:
+                        st.session_state.llm_connection = None
+                        st.error("Error connecting llm")
                 else:
-                    st.session_state.llm_connection = None
-                    st.error("Error connecting llm")
+                    st.session_state.DB_connection = None
+                    st.error("Error in connecting to DB")
             else:
-                st.session_state.DB_connection = None
-                st.error("Error in connecting to DB")
-        else:
-            st.error("Please provide API-key and DB-password")
+                st.error("Please provide required credentials.")
     
     if st.session_state.DB_connection:
         if st.button("Disconnect"):
@@ -248,7 +254,7 @@ with st.sidebar:
 st.markdown("<h1 style='text-align: center;'>SQLbot</h1>", unsafe_allow_html=True)
 with st.expander("Instructions: "):
     st.markdown("""
-                1. First, initialize the credentials by providing Gemini API key and Database password.
+                1. First, initialize the credentials by providing Gemini API key and Database credentials.
                 2. Select the schema and table from the sidebar to start the conversation.
                 3. You can create a new schema from sidebar.
                 4. If table is not present in the selected schema, you can create a new table by providing the column names and respective data types.
@@ -271,6 +277,16 @@ for message in st.session_state.messages:
                     st.info("No data found for the query.")
             else:
                 st.markdown(message["content"])
+
+components.html(
+"""
+<script>
+    var elem = window.parent.document.querySelector('section.main');
+    elem.scrollTo({ top: elem.scrollHeight, behavior: 'smooth' });
+</script>
+""",
+height=0,
+)
 
 user_input = st.chat_input(placeholder="Enter your query here...")
 

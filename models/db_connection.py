@@ -7,9 +7,9 @@ class DBconnection:
         self.user = None
         self.password = None
 
-    def initialize_credentials(self, password: str):
-        self.host = "localhost"
-        self.user = "root"
+    def initialize_credentials(self, password: str, host: str, user: str):
+        self.host = host
+        self.user = user
         self.password = password
         
         return self.connect()
