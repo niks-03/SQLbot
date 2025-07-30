@@ -120,9 +120,10 @@ class DBconnection:
             try:
                 self.cursor.execute(query)
                 # self.conn.commit()
-                result = self.cursor.fetchall()
+                data = self.cursor.fetchall()
+                column_names = self.cursor.column_names
 
-                return result
+                return {"data":data, "column_names":list(column_names)}
             except Exception as e:
                 print(f"Error executing query: {e}")
                 return False

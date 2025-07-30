@@ -108,11 +108,11 @@ with st.sidebar:
                 # -- create new table
 
                 with st.popover("create table"):
-                    def new_table():
+                    def new_table_schema():
                         st.session_state.new_table.append(
                             {
-                                "column_name": st.session_state.column_name,
-                                "data_type": st.session_state.data_type,
+                                "column_name": st.session_state.new_column_name,
+                                "data_type": st.session_state.new_data_type,
                             }
                         )
 
@@ -134,7 +134,7 @@ with st.sidebar:
                         column_name = st.text_input("Column Name", key="new_column_name")
                         data_type = st.text_input("data type", key="new_data_type")
                         # situps = st.number_input("Situps", key="situps", step=1, value=0, min_value=0)
-                        st.form_submit_button("Add", on_click=new_table)
+                        st.form_submit_button("Add", on_click=new_table_schema)
 
                     columns = NewTable["column_name"].tolist()
                     data_types = NewTable["data_type"].tolist()
@@ -150,7 +150,7 @@ with st.sidebar:
         if st.button("🔃Refresh"):
             conn, llmConnect = ge_DB_llm_object()
 
-            if conn.initialize_credentials(DB_password):
+            if conn.initialize_credentials(DB_password, DB_host, DB_user):
                 if  llmConnect.initialize_llm(API_KEY):
                     st.session_state.DB_connection = conn
                     st.session_state.llm_connection = llmConnect
@@ -178,11 +178,11 @@ with st.sidebar:
         # -- create new table
 
         with st.popover("create table"):
-            def new_table():
+            def new_table_sidebar():
                 st.session_state.new_table.append(
                     {
-                        "column_name": st.session_state.column_name,
-                        "data_type": st.session_state.data_type,
+                        "column_name": st.session_state.sidebar_column_name,
+                        "data_type": st.session_state.sidebar_data_type,
                     }
                 )
 
@@ -203,7 +203,7 @@ with st.sidebar:
             with st.form("new_table_sidebar", clear_on_submit=True):
                 column_name = st.text_input("Column Name", key="sidebar_column_name")
                 data_type = st.text_input("data type", key="sidebar_data_type")
-                st.form_submit_button("Add", on_click=new_table)
+                st.form_submit_button("Add", on_click=new_table_sidebar)
 
             columns = NewTable["column_name"].tolist()
             data_types = NewTable["data_type"].tolist()
@@ -230,11 +230,12 @@ with st.sidebar:
                 with st.expander("Instructions: ", expanded=True):
                     st.markdown("""
                                 1. Make sure the data types and the number of columns in the CSV file match with the columns in the table.
-                                2. Make sure the squence of columns in CSV file is same as the columns in table.""")
+                                2. Make sure the squence of columns in CSV file is same as the columns in table.
+                                3. Keep the column names in the first row of CSV file as per standard CSV format.""")
                 
-                selected_schema = st.selectbox("", st.session_state.schemas, index=None, placeholder="Select schema", label_visibility="collapsed")
+                selected_schema = st.selectbox("select schema", st.session_state.schemas, index=None, placeholder="Select schema", label_visibility="collapsed")
                 st.session_state.data_upload_table = st.session_state.DB_connection.get_tables(selected_schema)
-                selected_table = st.selectbox("", st.session_state.data_upload_table, index=None, placeholder="Select table", label_visibility="collapsed")
+                selected_table = st.selectbox("select table", st.session_state.data_upload_table, index=None, placeholder="Select table", label_visibility="collapsed")
 
                 if st.button("Upload to table"):
                     csv_columns = ", ".join(df.columns)
@@ -270,7 +271,7 @@ for message in st.session_state.messages:
             if isinstance(message["content"], dict):
                 if len(message["content"]["data"]) > 0:
                     st.code(message["content"]["sql"], language="sql")
-                    df = pd.DataFrame(message["content"]["data"])
+                    df = pd.DataFrame(data=message["content"]["data"], columns=message["content"]["columns"])
                     st.dataframe(df)
                 else:
                     st.code(message["content"]["sql"], language="sql")
@@ -303,15 +304,16 @@ if user_input:
                 st.session_state.selected_table,
                 st.session_state.table_info
             )
-            data = st.session_state.DB_connection.execute_query(response)
-            print("data: ", data)
+            result = st.session_state.DB_connection.execute_query(response)
+            print("result: ", result)
+                
 
         # Add assistant response to session state
         if response:
-            if isinstance(data, list) and len(data) > 0:
-                st.session_state.messages.append({"role": "assistant", "content": {"sql": response, "data": data}})
+            if isinstance(result, dict) and len(result["data"]) > 0:
+                st.session_state.messages.append({"role": "assistant", "content": {"sql": response, "data": result["data"], "columns": result["column_names"]}})
             else:
-                st.session_state.messages.append({"role": "assistant", "content": {"sql": response, "data": []}})
+                st.session_state.messages.append({"role": "assistant", "content": {"sql": response, "data": [], "columns": []}})
         else:
             st.session_state.messages.append({"role": "assistant", "content": "Error generating response or executing query. Please check the input and try again."})
         
